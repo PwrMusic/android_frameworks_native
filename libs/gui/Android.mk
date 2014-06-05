@@ -70,6 +70,9 @@ endif
 ifeq ($(TARGET_TOROPLUS_RADIO), true)
 	LOCAL_CFLAGS += -DTOROPLUS_RADIO
 endif
+ifeq ($(TARGET_SOC),exynos5410)
+        LOCAL_CFLAGS += -DUSES_PVR_GPU
+endif
 
 include $(BUILD_SHARED_LIBRARY)
 

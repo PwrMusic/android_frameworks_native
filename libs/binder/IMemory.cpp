@@ -36,6 +36,10 @@
 #include "ion.h"
 #endif
 
+#ifdef USE_MHB_ION
+#include "ion.h"
+#endif
+
 #define VERBOSE   0
 
 namespace android {
@@ -311,6 +315,14 @@ void BpMemoryHeap::assertReallyMapped() const
         }
 #endif
 
+#ifdef USE_MHB_ION
+        ion_client ion_client_num = -1;
+        if (flags & USE_ION_FD) {
+            ion_client_num = ion_client_create();
+            ALOGE_IF(ion_client_num < 0, "BpMemoryHeap : ion client creation error");
+        }
+#endif
+
         int fd = dup( parcel_fd );
         ALOGE_IF(fd==-1, "cannot dup fd=%d, size=%ld, err=%d (%s)",
                 parcel_fd, size, err, strerror(errno));
@@ -332,7 +344,16 @@ void BpMemoryHeap::assertReallyMapped() const
                 mBase = ion_map(fd, size, offset);
             } else
 #endif
-                mBase = mmap(0, size, access, MAP_SHARED, fd, offset);
+
+#ifdef USE_MHB_ION
+            if (flags & USE_ION_FD) {
+                if (ion_client_num < 0)
+                    mBase = MAP_FAILED;
+                else
+                    mBase = ion_map(fd, size, offset);
+            } else
+#endif
+            mBase = mmap(0, size, access, MAP_SHARED, fd, offset);
             if (mBase == MAP_FAILED) {
                 ALOGE("cannot map BpMemoryHeap (binder=%p), size=%ld, fd=%d (%s)",
                         asBinder().get(), size, fd, strerror(errno));
@@ -344,11 +365,19 @@ void BpMemoryHeap::assertReallyMapped() const
                 android_atomic_write(fd, &mHeapId);
             }
         }
+
 #ifdef USE_V4L2_ION
         if (ion_client < 0)
             ion_client = -1;
         else
             ion_client_destroy(ion_client);
+#endif
+
+#ifdef USE_MHB_ION
+        if (ion_client_num < 0)
+            ion_client_num = -1;
+        else
+            ion_client_destroy(ion_client_num);
 #endif
     }
 }
